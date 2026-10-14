@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BEARS Character Challenge - Live Leaderboard & Admin Panel</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <style>
+        :root {
+            --bears-black: #0c0c0c;
+            --bears-dark-gray: #1a1a1a;
+            --bears-card-gray: #262626;
+            --bears-border-gray: #383838;
+            --bears-yellow: #FFD700;
+            --bears-yellow-hover: #E6C200;
+            --bears-yellow-glow: rgba(255, 215, 0, 0.35);
+            --bears-white: #FFFFFF;
+            --bears-text-muted: #AAAAAA;
+            --bears-red: #ff4d4d;
+            --bears-green: #2ecc71;
+            --bears-blue: #3498db;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bears-black);
+            color: var(--bears-white);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        .navbar {
+            background: rgba(26, 26, 26, 0.95);
+            border-bottom: 2px solid var(--bears-yellow);
+            padding: 0.8rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 900;
+            font-size: 1.4rem;
+            color: var(--bears-yellow);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sync-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #181818;
+            border: 1px solid var(--bears-border-gray);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #777;
+            display: inline-block;
+        }
+
+        .pulse-dot.live {
+            background-color: var(--bears-green);
+            box-shadow: 0 0 8px var(--bears-green);
+            animation: pulse 1.8s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+
+        .nav-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        /* Hidden admin lock icon */
+        .admin-lock {
+            cursor: pointer;
+            color: var(--bears-border-gray);
+            transition: color 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+        }
+
+        .admin-lock:hover {
+            color: var(--bears-yellow);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .tab-btn {
+            background: var(--bears-card-gray);
+            border: 1px solid var(--bears-border-gray);
+            color: var(--bears-white);
+            padding: 0.5rem 1.2rem;
+            border-radius: 20px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+        }
+
+        .tab-btn.active {
+            background: var(--bears-yellow);
+            color: var(--bears-black);
+            border-color: var(--bears-yellow);
+            box-shadow: 0 0 12px var(--bears-yellow-glow);
+        }
+
+        .view-content {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            display: none;
+            flex-direction: column;
+        }
+        
+        .view-content.active {
+            display: flex;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 0.5rem;
+        }
+
+        .brand-logo { font-size: 4rem; }
+
+        .brand-title {
+            font-size: 3.5rem;
+            font-weight: 900;
+            color: var(--bears-yellow);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+        }
+
+        .slogan {
+            font-size: 1.8rem;
+            color: var(--bears-white);
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 0.2rem;
+        }
+
+        .leaderboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+            margin: 0 auto 2.5rem auto;
+            width: 100%;
+        }
+
+        .grade-card {
+            background: var(--bears-card-gray);
+            border: 2px solid var(--bears-border-gray);
+            border-radius: 20px;
+            padding: 2.5rem 1.5rem;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 12px 35px rgba(0,0,0,0.7);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.4s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .grade-card.rank-1 {
+            border-color: var(--bears-yellow);
+            transform: scale(1.05);
+            background: linear-gradient(180deg, rgba(255,215,0,0.18) 0%, var(--bears-card-gray) 100%);
+            box-shadow: 0 15px 40px rgba(255, 215, 0, 0.2);
+            z-index: 10;
+        }
+
+        .rank-badge {
+            position: absolute;
+            top: -22px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bears-border-gray);
+            color: var(--bears-text-muted);
+            padding: 8px 24px;
+            border-radius: 20px;
+            font-weight: 900;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+
+        .grade-card.rank-1 .rank-badge {
+            background: var(--bears-yellow);
+            color: var(--bears-black);
+        }
+
+        .grade-name {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-top: 1rem;
+            color: var(--bears-white);
+        }
+
+        .score-display {
+            font-size: 5.5rem;
+            font-weight: 900;
+            color: var(--bears-yellow);
+            margin: 1rem 0;
+            line-height: 1;
+            text-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+        }
+
+        .score-label {
+            font-size: 1rem;
+            color: var(--bears-text-muted);
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .reward-section {
+            background: var(--bears-dark-gray);
+            border: 2px solid var(--bears-yellow);
+            border-radius: 18px;
+            padding: 1.8rem;
+            text-align: center;
+            width: 100%;
+            margin-top: auto;
+        }
+
+        .reward-title {
+            color: var(--bears-yellow);
+            font-size: 1.6rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 1rem;
+        }
+
+        .reward-list {
+            display: flex;
+            justify-content: center;
+            gap: 1.2rem;
+            flex-wrap: wrap;
+        }
+
+        .reward-pill {
+            background: var(--bears-card-gray);
+            border: 1px solid var(--bears-yellow);
+            padding: 0.8rem 1.8rem;
+            border-radius: 30px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--bears-white);
+        }
+
+        .admin-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .admin-card {
+            background: var(--bears-dark-gray);
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+
+        .card-title {
+            color: var(--bears-yellow);
+            font-size: 1.2rem;
+            margin-bottom: 1.2rem;
+            border-bottom: 1px solid #333;
+            padding-bottom: 0.5rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        /* Admin Current Points Viewer */
+        .admin-scores-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1.5rem;
+        }
+        .admin-score-box {
+            flex: 1;
+            background: var(--bears-card-gray);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid var(--bears-border-gray);
+        }
+        .admin-score-box .grade { font-size: 0.9rem; color: var(--bears-text-muted); font-weight: bold; }
+        .admin-score-box .score { font-size: 1.8rem; color: var(--bears-yellow); font-weight: 900; }
+
+        .form-group { margin-bottom: 1rem; }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.4rem;
+            color: var(--bears-text-muted);
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .form-control, select {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bears-black);
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        select:focus, .form-control:focus { border-color: var(--bears-yellow); }
+
+        /* Checkboxes */
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            margin-bottom: 0.8rem;
+            color: #eee;
+            font-weight: 500;
+        }
+        .checkbox-label input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--bears-yellow);
+        }
+
+        .btn {
+            background: var(--bears-yellow);
+            color: var(--bears-black);
+            border: none;
+            padding: 0.75rem 1.4rem;
+            font-weight: 800;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 1rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .btn:hover {
+            background: var(--bears-yellow-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.2);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            color: var(--bears-yellow);
+            border: 2px solid var(--bears-yellow);
+        }
+        .btn-outline:hover {
+            background: rgba(255, 215, 0, 0.1);
+        }
+
+        .btn-danger { background: var(--bears-red); color: white; }
+        .btn-danger:hover { background: #ff3333; box-shadow: 0 4px 12px rgba(255, 77, 77, 0.2); }
+
+        .btn-secondary { background: var(--bears-card-gray); color: white; border: 1px solid var(--bears-border-gray); }
+        .btn-secondary:hover { background: var(--bears-border-gray); }
+
+        .point-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Custom Modals for Validation */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(5px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-overlay.active { display: flex; }
+        
+        .modal-content {
+            background: var(--bears-dark-gray);
+            border: 2px solid var(--bears-border-gray);
+            border-radius: 12px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+        }
+        .modal-title { color: var(--bears-yellow); margin-bottom: 1rem; font-size: 1.5rem; font-weight: 800; }
+        .modal-text { color: #eee; margin-bottom: 1.5rem; line-height: 1.5; }
+        .modal-actions { display: flex; gap: 10px; }
+
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            background: var(--bears-dark-gray);
+            border-left: 4px solid var(--bears-yellow);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            font-weight: 600;
+            animation: slideIn 0.3s ease forwards;
+            min-width: 250px;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            .brand-title { font-size: 2.2rem; }
+            .slogan { font-size: 1.2rem; }
+            .admin-grid { grid-template-columns: 1fr; }
+            .score-display { font-size: 4rem; }
+            .navbar { flex-direction: column; gap: 1rem; padding: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar" id="main-nav">
+        <div class="nav-brand">
+            🐻 BEARS Character Leaderboard
+        </div>
+        
+        <div class="nav-controls">
+            <div class="sync-badge" id="sync-status">
+                <span class="pulse-dot connecting" id="sync-dot"></span>
+                <span id="sync-text">Connecting...</span>
+            </div>
+            <!-- Admin access is hidden behind this subtle lock icon -->
+            <div class="admin-lock" onclick="openPinModal()" title="Admin Access">
+                🔒
+            </div>
+            <!-- Admin tab is hidden until unlocked -->
+            <button class="tab-btn" id="admin-tab-btn" style="display: none;" onclick="switchTab('admin')">
+                ⚙️ Admin
+            </button>
+            <button class="tab-btn active" id="leaderboard-tab-btn" onclick="switchTab('leaderboard')">
+                📊 Leaderboard
+            </button>
+        </div>
+    </nav>
+
+    <!-- PIN Access Modal -->
+    <div class="modal-overlay" id="pin-modal">
+        <div class="modal-content">
+            <h2 class="modal-title">Admin Access</h2>
+            <p class="modal-text">Please enter the security PIN to access the management portal.</p>
+            <input type="password" id="pin-input" class="form-control" placeholder="Enter PIN" style="margin-bottom: 1rem; text-align: center; font-size: 1.2rem; letter-spacing: 5px;">
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closePinModal()">Cancel</button>
+                <button class="btn" onclick="verifyPin()">Unlock</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal-overlay" id="confirm-modal">
+        <div class="modal-content">
+            <h2 class="modal-title" id="confirm-title">Confirm Action</h2>
+            <p class="modal-text" id="confirm-text">Are you sure?</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeConfirmModal()">Cancel</button>
+                <button class="btn" id="confirm-yes-btn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <main id="view-leaderboard" class="view-content active">
+        <div class="header">
+            <div class="brand">
+                <span class="brand-logo">🐻</span>
+                <h1 class="brand-title">BEARS Character Leaderboard</h1>
+            </div>
+            <h2 class="slogan">Make the world a better place</h2>
+        </div>
+
+        <div class="leaderboard-grid" id="leaderboard-container">
+            <!-- Grade cards will be injected here by JavaScript -->
+            <div style="text-align:center; grid-column: 1/-1; color: var(--bears-text-muted);">
+                Loading live standings...
+            </div>
+        </div>
+
+        <div class="reward-section" id="public-rewards-section" style="display: none;">
+            <h3 class="reward-title">🏆 Current Challenge Rewards 🏆</h3>
+            <div class="reward-list" id="public-rewards-list">
+                <!-- Rewards injected dynamically -->
+            </div>
+        </div>
+    </main>
+
+    <main id="view-admin" class="view-content">
+        <div class="header">
+            <h1 class="brand-title">Admin Management</h1>
+            <h2 class="slogan" style="font-size:1.2rem; color:var(--bears-text-muted)">Secure Categorical Point Tracking</h2>
+        </div>
+
+        <!-- Live Scores Preview for Admin -->
+        <div class="admin-scores-row" id="admin-scores-preview">
+            <!-- Populated via JS -->
+        </div>
+
+        <div class="admin-grid">
+            <!-- Point Management Card -->
+            <div class="admin-card">
+                <h3 class="card-title">Award / Deduct Points</h3>
+                
+                <div class="form-group">
+                    <label>1. Select Grade Level</label>
+                    <select id="team-select" class="form-control">
+                        <!-- Populated via JS -->
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>2. Select Category Type</label>
+                    <select id="category-type-select" class="form-control" onchange="updateCategoryOptions()">
+                        <option value="standard">Standard Category</option>
+                        <option value="bonus">Bonus Category</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>3. Select Specific Behavior</label>
+                    <select id="specific-category-select" class="form-control" onchange="checkCustomCategory()">
+                        <!-- Populated via JS based on type -->
+                    </select>
+                    <input type="text" id="custom-category-input" class="form-control" placeholder="Enter custom behavior description" style="display: none; margin-top: 8px;">
+                </div>
+
+                <div class="form-group">
+                    <label>4. Adjust Points</label>
+                    <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+                        <button class="btn btn-secondary" onclick="quickAdjust(-5)" style="flex:1; padding: 0.5rem;">- 5</button>
+                        <button class="btn btn-secondary" onclick="quickAdjust(-1)" style="flex:1; padding: 0.5rem;">- 1</button>
+                        <button class="btn btn-secondary" onclick="quickAdjust(1)" style="flex:1; padding: 0.5rem;">+ 1</button>
+                        <button class="btn btn-secondary" onclick="quickAdjust(5)" style="flex:1; padding: 0.5rem;">+ 5</button>
+                        <button class="btn btn-secondary" onclick="quickAdjust(10)" style="flex:1; padding: 0.5rem;">+ 10</button>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" id="custom-points" class="form-control" placeholder="Amount (e.g. 15)" style="flex:1;">
+                        <button class="btn" onclick="requestPointUpdate()" style="width: auto;">Apply Edit</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rewards & Settings Zone -->
+            <div>
+                <div class="admin-card">
+                    <h3 class="card-title">Reward Management</h3>
+                    <p style="font-size: 0.85rem; color: var(--bears-text-muted); margin-bottom: 1rem;">
+                        Select which rewards to display on the live leaderboard.
+                    </p>
+                    
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="reward-movie" value="🎬 Movie Screening"> 🎬 Movie Screening
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="reward-recess" value="⚽ Extra Recess"> ⚽ Extra Recess
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="reward-mystery" value="🎁 Mystery Reward"> 🎁 Mystery Reward
+                    </label>
+                    
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <label>Custom Reward Display (Optional)</label>
+                        <input type="text" id="custom-reward-input" class="form-control" placeholder="e.g. 🍕 Pizza Party for 1st Place">
+                    </div>
+                    
+                    <button class="btn btn-outline" onclick="saveRewards()">Save Reward Settings</button>
+                </div>
+
+                <div class="admin-card">
+                    <h3 class="card-title">Live Presentation Settings</h3>
+                    
+                    <div class="form-group">
+                        <label>Celebrate Leaderboard Changes</label>
+                        <label class="checkbox-label" style="margin-bottom: 15px; margin-top: 5px;">
+                            <input type="checkbox" id="confetti-toggle" onchange="toggleConfetti(this.checked)"> 🎊 Enable Continuous Confetti on Public Displays
+                        </label>
+                        <button class="btn" onclick="triggerManualConfetti()" style="background: var(--bears-green); color: white;">
+                            🎉 Trigger Instant Confetti Burst
+                        </button>
+                        <p style="font-size: 0.8rem; color: var(--bears-text-muted); margin-top: 0.5rem;">
+                            Clicking this will instantly trigger a brief confetti effect on all display screens.
+                        </p>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1.5rem; border-top: 1px solid #333; padding-top: 1rem;">
+                        <label>Public Display Screen</label>
+                        <button class="btn btn-outline" onclick="window.open(window.location.pathname + '?public=true', '_blank')">
+                            📺 Open Clean Public View (No Admin Links)
+                        </button>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1.5rem; border-top: 1px solid #333; padding-top: 1rem;">
+                        <label>Security</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="password" id="new-pin-input" class="form-control" placeholder="Enter New PIN">
+                            <button class="btn btn-secondary" onclick="updateAdminPin()" style="width: auto;">Update</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast-container"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot, updateDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Environment configs
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'bears-challenge-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyAZDF2rvZfRW4ZrE_UjtG3FbxH6TOfVPJo", 
+            authDomain: "bears-leaderboard.firebaseapp.com", 
+            projectId: "bears-leaderboard",
+            storageBucket: "bears-leaderboard.firebasestorage.app",
+            messagingSenderId: "800219583686",
+            appId: "1:800219583686:web:4634ca77dfd7feafcdf3c7"
+        };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Init Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Required paths (Rules compliant)
+        const LEADERBOARD_COLL = `artifacts/${appId}/public/data/bears_grades`;
+        const SETTINGS_DOC = `artifacts/${appId}/public/data/bears_config/global_settings`;
+
+        // State
+        let teamsData = [];
+        let globalSettings = {
+            pin: '1234',
+            rewards: [],
+            customReward: '',
+            confettiTrigger: 0,
+            confettiActive: false
+        };
+        let isAdminUnlocked = false;
+        let lastConfettiTime = 0;
+        let confirmActionCallback = null;
+        let continuousConfettiInterval = null;
+
+        const categories = {
+            standard: [
+                "Organized Lockers",
+                "Clean Halls",
+                "Clean Bathrooms",
+                "Fewest Tardies",
+                "Fewest Missing Assignments",
+                "Custom..."
+            ],
+            bonus: [
+                "Clean Lunch Room",
+                "Manners and Respect",
+                "Kindness Challenge",
+                "Custom..."
+            ]
+        };
+
+        // Parse URL to check for public display mode
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('public') === 'true') {
+                document.getElementById('main-nav').style.display = 'none';
+                document.getElementById('view-leaderboard').style.paddingTop = '4rem';
+            }
+        });
+
+        window.switchTab = (tabId) => {
+            if (tabId === 'admin' && !isAdminUnlocked) {
+                openPinModal();
+                return;
+            }
+            document.querySelectorAll('.view-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(`view-${tabId}`).classList.add('active');
+            document.getElementById(`${tabId}-tab-btn`).classList.add('active');
+        };
+
+        window.showToast = (message, type = 'info') => {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            if (type === 'success') toast.style.borderLeftColor = 'var(--bears-green)';
+            if (type === 'error') toast.style.borderLeftColor = 'var(--bears-red)';
+            toast.innerText = message;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s ease forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        };
+
+        // Modals
+        window.openPinModal = () => document.getElementById('pin-modal').classList.add('active');
+        window.closePinModal = () => {
+            document.getElementById('pin-modal').classList.remove('active');
+            document.getElementById('pin-input').value = '';
+        };
+
+        window.verifyPin = () => {
+            const input = document.getElementById('pin-input').value;
+            if (input === globalSettings.pin) {
+                isAdminUnlocked = true;
+                closePinModal();
+                document.getElementById('admin-tab-btn').style.display = 'flex';
+                switchTab('admin');
+                showToast('Admin access granted.', 'success');
+            } else {
+                showToast('Incorrect PIN.', 'error');
+            }
+        };
+
+        window.openConfirmModal = (title, text, callback) => {
+            document.getElementById('confirm-title').innerText = title;
+            document.getElementById('confirm-text').innerText = text;
+            confirmActionCallback = callback;
+            document.getElementById('confirm-modal').classList.add('active');
+        };
+
+        window.closeConfirmModal = () => {
+            document.getElementById('confirm-modal').classList.remove('active');
+            confirmActionCallback = null;
+        };
+
+        document.getElementById('confirm-yes-btn').addEventListener('click', () => {
+            if (confirmActionCallback) confirmActionCallback();
+            closeConfirmModal();
+        });
+
+        // Setup dropdowns
+        window.updateCategoryOptions = () => {
+            const type = document.getElementById('category-type-select').value;
+            const specificSelect = document.getElementById('specific-category-select');
+            specificSelect.innerHTML = '';
+            
+            categories[type].forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                specificSelect.appendChild(opt);
+            });
+            window.checkCustomCategory();
+        };
+
+        window.checkCustomCategory = () => {
+            const specificSelect = document.getElementById('specific-category-select');
+            const customInput = document.getElementById('custom-category-input');
+            if (specificSelect.value === 'Custom...') {
+                customInput.style.display = 'block';
+            } else {
+                customInput.style.display = 'none';
+            }
+        };
+
+        const updateSyncStatus = (status) => {
+            const dot = document.getElementById('sync-dot');
+            const text = document.getElementById('sync-text');
+            if (status === 'live') {
+                dot.className = 'pulse-dot live';
+                text.innerText = 'Live Sync On';
+            } else if (status === 'error') {
+                dot.className = 'pulse-dot';
+                dot.style.backgroundColor = 'var(--bears-red)';
+                dot.style.animation = 'none';
+                text.innerText = 'Disconnected';
+            }
+        };
+
+        const initDatabase = async () => {
+            // 1. Initialize Settings if missing
+            const settingsRef = doc(db, SETTINGS_DOC);
+            const settingsSnap = await getDoc(settingsRef);
+            if (!settingsSnap.exists()) {
+                await setDoc(settingsRef, globalSettings);
+            }
+
+            // Listen to settings
+            onSnapshot(settingsRef, (snap) => {
+                if (snap.exists()) {
+                    const data = snap.data();
+                    globalSettings = { ...globalSettings, ...data };
+                    renderRewards();
+                    populateAdminRewards();
+                    
+                    // Handle continuous confetti
+                    if (globalSettings.confettiActive && !continuousConfettiInterval) {
+                        startContinuousConfetti();
+                    } else if (!globalSettings.confettiActive && continuousConfettiInterval) {
+                        stopContinuousConfetti();
+                    }
+
+                    // Trigger confetti if remote trigger is newer
+                    if (data.confettiTrigger > lastConfettiTime && lastConfettiTime !== 0) {
+                        fireSchoolConfetti();
+                    }
+                    lastConfettiTime = data.confettiTrigger || Date.now();
+                }
+            }, (err) => console.error(err));
+
+            // 2. Initialize Leaderboard if empty
+            const leaderboardRef = collection(db, LEADERBOARD_COLL);
+            const ls = await getDocs(leaderboardRef);
+            
+            const defaultTeams = [
+                { id: 'grade6', name: '6th Grade', score: 0 },
+                { id: 'grade7', name: '7th Grade', score: 0 },
+                { id: 'grade8', name: '8th Grade', score: 0 }
+            ];
+
+            if (ls.empty) {
+                for (const team of defaultTeams) {
+                    await setDoc(doc(db, LEADERBOARD_COLL, team.id), team);
+                }
+            } else {
+                // Check if any grades (like 8th grade) are missing from an existing database
+                const existingIds = ls.docs.map(d => d.id);
+                for (const team of defaultTeams) {
+                    if (!existingIds.includes(team.id)) {
+                        await setDoc(doc(db, LEADERBOARD_COLL, team.id), team);
+                    }
+                }
+            }
+
+            // Listen to leaderboard
+            onSnapshot(leaderboardRef, (snap) => {
+                const newTeamsData = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                newTeamsData.sort((a, b) => b.score - a.score);
+                teamsData = newTeamsData;
+                
+                renderLeaderboard();
+                renderAdminScores();
+                updateAdminDropdown();
+                updateSyncStatus('live');
+            }, (error) => {
+                console.error("Firestore sync error:", error);
+                updateSyncStatus('error');
+                showToast('Lost connection to live updates.', 'error');
+            });
+        };
+
+        const authenticate = async () => {
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                await initDatabase();
+                updateCategoryOptions(); // populate initial dropdowns
+            } catch (err) {
+                console.error("Auth failed:", err);
+                updateSyncStatus('error');
+            }
+        };
+
+        const renderLeaderboard = () => {
+            const container = document.getElementById('leaderboard-container');
+            container.innerHTML = '';
+
+            teamsData.forEach((team, index) => {
+                const rank = index + 1;
+                const isRank1 = rank === 1 && team.score > 0;
+                
+                const card = document.createElement('div');
+                card.className = `grade-card ${isRank1 ? 'rank-1' : ''}`;
+                
+                card.innerHTML = `
+                    <div class="rank-badge">${rank === 1 ? '🥇 1st Place' : rank === 2 ? '🥈 2nd Place' : '🥉 3rd Place'}</div>
+                    <div class="grade-name">${team.name}</div>
+                    <div class="score-display">${team.score.toLocaleString()}</div>
+                    <div class="score-label">CULTURE POINTS</div>
+                `;
+                container.appendChild(card);
+            });
+        };
+
+        const renderRewards = () => {
+            const section = document.getElementById('public-rewards-section');
+            const list = document.getElementById('public-rewards-list');
+            list.innerHTML = '';
+            
+            const activeRewards = [...(globalSettings.rewards || [])];
+            if (globalSettings.customReward) {
+                activeRewards.push(globalSettings.customReward);
+            }
+
+            if (activeRewards.length === 0) {
+                section.style.display = 'none';
+            } else {
+                section.style.display = 'block';
+                activeRewards.forEach(r => {
+                    const pill = document.createElement('div');
+                    pill.className = 'reward-pill';
+                    pill.textContent = r;
+                    list.appendChild(pill);
+                });
+            }
+        };
+
+        const renderAdminScores = () => {
+            const container = document.getElementById('admin-scores-preview');
+            container.innerHTML = '';
+            // Sort by grade number logic purely for display consistency (6, 7, 8)
+            const sortedForAdmin = [...teamsData].sort((a,b) => a.name.localeCompare(b.name));
+            
+            sortedForAdmin.forEach(team => {
+                const box = document.createElement('div');
+                box.className = 'admin-score-box';
+                box.innerHTML = `
+                    <div class="grade">${team.name}</div>
+                    <div class="score">${team.score}</div>
+                `;
+                container.appendChild(box);
+            });
+        };
+
+        const updateAdminDropdown = () => {
+            const select = document.getElementById('team-select');
+            const currentVal = select.value;
+            select.innerHTML = '<option value="">-- Select a Grade Level --</option>';
+            
+            const sortedForDropdown = [...teamsData].sort((a, b) => a.name.localeCompare(b.name));
+            sortedForDropdown.forEach(team => {
+                const opt = document.createElement('option');
+                opt.value = team.id;
+                opt.textContent = `${team.name} (Current: ${team.score})`;
+                select.appendChild(opt);
+            });
+            
+            if (currentVal && sortedForDropdown.find(t => t.id === currentVal)) {
+                select.value = currentVal;
+            }
+        };
+
+        const populateAdminRewards = () => {
+            document.getElementById('reward-movie').checked = (globalSettings.rewards || []).includes("🎬 Movie Screening");
+            document.getElementById('reward-recess').checked = (globalSettings.rewards || []).includes("⚽ Extra Recess");
+            document.getElementById('reward-mystery').checked = (globalSettings.rewards || []).includes("🎁 Mystery Reward");
+            
+            const confettiToggle = document.getElementById('confetti-toggle');
+            if (confettiToggle) confettiToggle.checked = globalSettings.confettiActive || false;
+
+            if(document.activeElement !== document.getElementById('custom-reward-input')){
+               document.getElementById('custom-reward-input').value = globalSettings.customReward || '';
+            }
+        };
+
+        window.quickAdjust = (amount) => {
+            document.getElementById('custom-points').value = amount;
+            window.requestPointUpdate();
+        };
+
+        window.requestPointUpdate = () => {
+            const teamId = document.getElementById('team-select').value;
+            let specificCat = document.getElementById('specific-category-select').value;
+            
+            if (specificCat === 'Custom...') {
+                specificCat = document.getElementById('custom-category-input').value.trim();
+                if (!specificCat) specificCat = "Custom Behavior";
+            }
+            
+            const amountStr = document.getElementById('custom-points').value;
+            const amount = parseInt(amountStr);
+            
+            if (!teamId) return showToast('Please select a grade level.', 'error');
+            if (isNaN(amount) || amount === 0) return showToast('Please enter a valid non-zero point amount.', 'error');
+            
+            const team = teamsData.find(t => t.id === teamId);
+            const actionWord = amount > 0 ? "ADD" : "DEDUCT";
+            const newScore = Math.max(0, team.score + amount);
+
+            const confirmMsg = `You are about to ${actionWord} ${Math.abs(amount)} points to ${team.name} for "${specificCat}".\n\nNew Total Score will be: ${newScore}.`;
+
+            openConfirmModal("Review Point Adjustment", confirmMsg, async () => {
+                try {
+                    const docRef = doc(db, LEADERBOARD_COLL, teamId);
+                    await updateDoc(docRef, { score: newScore });
+                    showToast(`Successfully updated ${team.name}.`, 'success');
+                    document.getElementById('custom-points').value = '';
+                } catch (err) {
+                    console.error("Error updating score:", err);
+                    showToast('Failed to update score.', 'error');
+                }
+            });
+        };
+
+        window.saveRewards = async () => {
+            if (!auth.currentUser) return;
+            const r1 = document.getElementById('reward-movie').checked;
+            const r2 = document.getElementById('reward-recess').checked;
+            const r3 = document.getElementById('reward-mystery').checked;
+            
+            const selected = [];
+            if(r1) selected.push("🎬 Movie Screening");
+            if(r2) selected.push("⚽ Extra Recess");
+            if(r3) selected.push("🎁 Mystery Reward");
+
+            const custom = document.getElementById('custom-reward-input').value.trim();
+
+            try {
+                await updateDoc(doc(db, SETTINGS_DOC), {
+                    rewards: selected,
+                    customReward: custom
+                });
+                showToast('Rewards updated on public display.', 'success');
+            } catch (err) {
+                showToast('Failed to save rewards.', 'error');
+            }
+        };
+
+        window.triggerManualConfetti = async () => {
+            if (!auth.currentUser) return;
+            try {
+                await updateDoc(doc(db, SETTINGS_DOC), {
+                    confettiTrigger: Date.now()
+                });
+                showToast('Confetti triggered globally!', 'success');
+            } catch (e) {
+                showToast('Error triggering confetti.', 'error');
+            }
+        };
+
+        window.updateAdminPin = async () => {
+            const newPin = document.getElementById('new-pin-input').value.trim();
+            if(newPin.length < 4) {
+                return showToast('PIN must be at least 4 characters.', 'error');
+            }
+            openConfirmModal("Update Security PIN", `Are you sure you want to change the admin access PIN to "${newPin}"?`, async () => {
+                try {
+                    await updateDoc(doc(db, SETTINGS_DOC), { pin: newPin });
+                    showToast('Admin PIN successfully updated.', 'success');
+                    document.getElementById('new-pin-input').value = '';
+                } catch(e) {
+                    showToast('Failed to update PIN.', 'error');
+                }
+            });
+        };
+
+        window.toggleConfetti = async (isActive) => {
+            if (!auth.currentUser) return;
+            try {
+                await updateDoc(doc(db, SETTINGS_DOC), { confettiActive: isActive });
+                showToast(isActive ? 'Continuous Confetti Enabled.' : 'Continuous Confetti Disabled.', 'success');
+            } catch (e) {
+                showToast('Error toggling confetti.', 'error');
+            }
+        };
+
+        const startContinuousConfetti = () => {
+            continuousConfettiInterval = setInterval(() => {
+                confetti({
+                    particleCount: 12,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0, y: 0.8 },
+                    colors: ['#FFD700', '#FFFFFF', '#0c0c0c', '#1a1a1a'],
+                    zIndex: 1000
+                });
+                confetti({
+                    particleCount: 12,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1, y: 0.8 },
+                    colors: ['#FFD700', '#FFFFFF', '#0c0c0c', '#1a1a1a'],
+                    zIndex: 1000
+                });
+            }, 800);
+        };
+
+        const stopContinuousConfetti = () => {
+            if (continuousConfettiInterval) {
+                clearInterval(continuousConfettiInterval);
+                continuousConfettiInterval = null;
+            }
+        };
+
+        const fireSchoolConfetti = () => {
+            var duration = 4 * 1000;
+            var animationEnd = Date.now() + duration;
+            // School colors: Black, Yellow, White
+            var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1000, colors: ['#FFD700', '#FFFFFF', '#0c0c0c', '#1a1a1a'] };
+
+            function randomInRange(min, max) {
+              return Math.random() * (max - min) + min;
+            }
+
+            var interval = setInterval(function() {
+              var timeLeft = animationEnd - Date.now();
+              if (timeLeft <= 0) return clearInterval(interval);
+
+              var particleCount = 50 * (timeLeft / duration);
+              confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+              confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+            }, 250);
+        };
+
+        // Boot
+        authenticate();
+
+    </script>
+</body>
+</html>
